@@ -1,3 +1,3 @@
 # MiCasaHttpSwitch
 
-A description of this package.
+This MiCasa plugin provides a switch, that can be toggled via HTTP.
