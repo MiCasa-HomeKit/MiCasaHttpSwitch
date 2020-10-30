@@ -15,10 +15,10 @@
  */
 
 import Foundation
-import HAP
 import MiCasaPlugin
+import HAP
 
-public class MiCasaHttpSwitch: MiCasaAccessoryPlugin {
+public class MiCasaHttpSwitch: MiCasaPlugin {
 
     // MARK: - Private Properties
 
@@ -28,15 +28,14 @@ public class MiCasaHttpSwitch: MiCasaAccessoryPlugin {
 
     // MARK: - Initialize
 
-    public override init(apiGateway gateway: ApiGateway, configuration: [String:Any]) {
+    public override init(apiGateway gateway: ApiGateway, configuration: Data) {
         super.init(apiGateway: gateway, configuration: configuration)
 
         do {
-            let json = try JSONSerialization.data(withJSONObject: configuration)
             let decoder = JSONDecoder()
 
             decoder.keyDecodingStrategy = .convertFromSnakeCase
-            config = try decoder.decode(HttpSwitchConfiguration.self, from: json)
+            config = try decoder.decode(HttpSwitchConfiguration.self, from: configuration)
         } catch {
             print(error)
         }
@@ -90,14 +89,12 @@ public class MiCasaHttpSwitch: MiCasaAccessoryPlugin {
         ofAccessory accessory: Accessory,
         didChangeValue newValue: T?) {
 
-        super.characteristic(characteristic, ofService: service, ofAccessory: accessory, didChangeValue: newValue)
-
-        Array(switches.values)
-            .first { sw in sw.info.serialNumber.hashValue == accessory.info.serialNumber.hashValue }?
+        super
             .characteristic(
-                    characteristic,
-                    ofService: service,
-                    didChangeValue: newValue)
+                characteristic,
+                ofService: service,
+                ofAccessory: accessory,
+                didChangeValue: newValue)
     }
 
 

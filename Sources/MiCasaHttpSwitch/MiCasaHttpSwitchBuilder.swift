@@ -53,7 +53,7 @@ public class MiCasaHttpSwitchBuilder: MiCasaPluginBuilder<MiCasaHttpSwitch> {
 
      - Returns: An instance of the plugin
      */
-    public override func build(apiGateway: ApiGateway, configuration: [String:Any]) -> MiCasaHttpSwitch {
+    public override func build(apiGateway: ApiGateway, configuration: Data) -> MiCasaHttpSwitch {
         return MiCasaHttpSwitch(apiGateway: apiGateway, configuration: configuration)
     }
 }
