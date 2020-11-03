@@ -17,6 +17,12 @@
 import Foundation
 import MiCasaPlugin
 import HAP
+import Swifter
+
+struct SwitchStatus: Codable {
+    var id: String
+    var powerState: Bool
+}
 
 public class MiCasaHttpSwitch: MiCasaPlugin {
 
@@ -25,6 +31,8 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
     private let serialNumber = "fff4a4ae-8500-4548-b3a9-8fe5b105349c"
     private var config: HttpSwitchConfiguration!
     private var switches: [String:Accessory] = [:]
+    private let server = HttpServer()
+    //private let router = server.routes
 
     // MARK: - Initialize
 
@@ -36,6 +44,13 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
 
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             config = try decoder.decode(HttpSwitchConfiguration.self, from: configuration)
+
+            server.POST["/switches/:id/on"] = self.turnSwitchOn(request:)
+            server.POST["/switches/:id/off"] = self.turnSwitchOff(request:)
+            server.GET["/switches/:id/status"] = self.switchStatus(request:)
+            server.POST["/switches/on"] = self.turnSwitchesOn(request:)
+            server.POST["/switches/off"] = self.turnSwitchesOff(request:)
+            server.GET["/switches/status"] = self.switchesStatus(request:)
         } catch {
             print(error)
         }
@@ -102,13 +117,120 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
 
     /// This method starts the plugin.
     public override func start() {
-        // Empty by design
+        try? server.start(in_port_t(config.port))
     }
 
     /// This method stops the plugin.
     ///
     /// The method is called before the bridge stops or is about to restart.
     public override func stop() {
-        // Empty by design
+        server.stop()
+    }
+
+
+    // MARK: - HTTP Handlers
+
+    private func turnSwitchOn(request: HttpRequest) -> HttpResponse {
+        guard let id = request.params[":id"] else {
+            return HttpResponse.badRequest(.text("Switch ID must be given"))
+        }
+
+        if let sw = switches[id] as? Accessory.Switch {
+            sw.switch.powerState.value = true
+
+            /*sw.characteristic(
+                sw.switch.powerState,
+                ofService: sw.switch,
+                didChangeValue: true)*/
+
+            return HttpResponse.accepted
+        }
+
+        return HttpResponse.notFound
+    }
+
+    private func turnSwitchOff(request: HttpRequest) -> HttpResponse {
+        guard let id = request.params[":id"] else {
+            return HttpResponse.badRequest(.text("Switch ID must be given"))
+        }
+
+        if let sw = switches[id] as? Accessory.Switch {
+            sw.switch.powerState.value = false
+            /*sw.characteristic(
+                sw.switch.powerState,
+                ofService: sw.switch,
+                didChangeValue: false)*/
+
+            return HttpResponse.accepted
+        }
+
+        return HttpResponse.notFound
+    }
+
+    private func switchStatus(request: HttpRequest) -> HttpResponse {
+        guard let id = request.params[":id"] else {
+            return HttpResponse.badRequest(.text("Switch ID must be given"))
+        }
+
+        if let sw = switches[id] as? Accessory.Switch {
+            guard let response =
+                try? JSONEncoder()
+                    .encode(
+                        SwitchStatus(id: id, powerState: sw.switch.powerState.value!)) else {
+
+                return HttpResponse.internalServerError
+            }
+
+            return HttpResponse.ok(.data(response, contentType: "application/json"))
+        }
+
+        return HttpResponse.notFound
+    }
+
+    private func turnSwitchesOn(request: HttpRequest) -> HttpResponse {
+        Array(switches.values)
+            .forEach { sw in
+                let `switch` = sw as! Accessory.Switch
+
+                `switch`.switch.powerState.value = true
+                /*`switch`.characteristic(
+                    `switch`.switch.powerState,
+                    ofService: `switch`.switch,
+                    didChangeValue: true)*/
+            }
+
+        return HttpResponse.accepted
+    }
+
+    private func turnSwitchesOff(request: HttpRequest) -> HttpResponse {
+        Array(switches.values)
+            .forEach { sw in
+                let `switch` = sw as! Accessory.Switch
+
+                `switch`.switch.powerState.value = false
+                /*`switch`.characteristic(
+                    `switch`.switch.powerState,
+                    ofService: `switch`.switch,
+                    didChangeValue: false)*/
+            }
+
+        return HttpResponse.accepted
+    }
+
+    private func switchesStatus(request: HttpRequest) -> HttpResponse {
+        guard let response =
+                try? JSONEncoder()
+                .encode(
+                    Array(switches.keys)
+                        .map { id -> SwitchStatus in
+                            let sw = switches[id] as! Accessory.Switch
+
+                            return SwitchStatus(id: id, powerState: sw.switch.powerState.value!)
+                        }) else {
+
+            return HttpResponse.internalServerError
+        }
+
+        return HttpResponse.ok(.data(response, contentType: "application/json"))
     }
 }
