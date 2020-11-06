@@ -17,7 +17,7 @@
 import Foundation
 
 struct Switch: Codable {
-    var id: String
+    var identifier: String
     var name: String
     var serialNumber: String
 

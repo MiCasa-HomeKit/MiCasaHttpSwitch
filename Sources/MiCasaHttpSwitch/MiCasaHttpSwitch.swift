@@ -20,7 +20,7 @@ import HAP
 import Swifter
 
 struct SwitchStatus: Codable {
-    var id: String
+    var identifier: String
     var powerState: Bool
 }
 
@@ -30,14 +30,16 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
 
     private let serialNumber = "fff4a4ae-8500-4548-b3a9-8fe5b105349c"
     private var config: HttpSwitchConfiguration!
-    private var switches: [String:Accessory] = [:]
+    private var switches: [String: Accessory] = [:]
     private let server = HttpServer()
     //private let router = server.routes
 
     // MARK: - Initialize
 
-    public override init(apiGateway gateway: ApiGateway, configuration: Data) {
-        super.init(apiGateway: gateway, configuration: configuration)
+    public override init?(apiGateway gateway: ApiGateway, configuration: Data) throws {
+        try super.init(apiGateway: gateway, configuration: configuration)
+
+        config = try self.configuration(configuration)
 
         do {
             let decoder = JSONDecoder()
@@ -62,14 +64,9 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
         return lhs.serialNumber == rhs.serialNumber
     }
 
-    public override var hashValue: Int {
-        return serialNumber.hashValue
-    }
-
     public override func hash(into hasher: inout Hasher) {
         hasher.combine(serialNumber)
     }
-
 
     // MARK: - Plugin API
 
@@ -77,41 +74,41 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
         if switches.count == 0 {
             config
                 .switches
-                .forEach { sw in
-                    switches[sw.id] =
+                // swiftlint:disable:next unused_closure_parameter
+                .forEach { `switch` in
+                    switches[`switch`.identifier] =
                         Accessory
-                            .Switch(
-                                info:
-                                    .init(
-                                        name: sw.name,
-                                        serialNumber: sw.serialNumber,
-                                        manufacturer: "MiCasa Development Team",
-                                        model: "MiCasa HTTP Switch",
-                                        firmwareRevision: "0.0.1"))
+                        .Switch(
+                            info:
+                                .init(
+                                    name: `switch`.name,
+                                    serialNumber: `switch`.serialNumber,
+                                    manufacturer: "MiCasa Development Team",
+                                    model: "MiCasa HTTP Switch",
+                                    firmwareRevision: "0.0.1"))
                 }
         }
 
         return Array(switches.values)
     }
 
-    public override func identify(accessory: Accessory) {
-        super.identify(accessory: accessory)
+    public override func identify(accessory: Accessory) throws {
+        try super.identify(accessory: accessory)
     }
 
     public override func characteristic<T>(
         _ characteristic: GenericCharacteristic<T>,
         ofService service: Service,
         ofAccessory accessory: Accessory,
-        didChangeValue newValue: T?) {
+        didChangeValue newValue: T?) throws {
 
-        super
+        try super
             .characteristic(
                 characteristic,
                 ofService: service,
                 ofAccessory: accessory,
                 didChangeValue: newValue)
     }
-
 
     // MARK: - API
 
@@ -127,21 +124,15 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
         server.stop()
     }
 
-
     // MARK: - HTTP Handlers
 
     private func turnSwitchOn(request: HttpRequest) -> HttpResponse {
-        guard let id = request.params[":id"] else {
+        guard let ident = request.params[":id"] else {
             return HttpResponse.badRequest(.text("Switch ID must be given"))
         }
 
-        if let sw = switches[id] as? Accessory.Switch {
-            sw.switch.powerState.value = true
-
-            /*sw.characteristic(
-                sw.switch.powerState,
-                ofService: sw.switch,
-                didChangeValue: true)*/
+        if let `switch` = switches[ident] as? Accessory.Switch {
+            `switch`.switch.powerState.value = true
 
             return HttpResponse.accepted
         }
@@ -150,16 +141,16 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
     }
 
     private func turnSwitchOff(request: HttpRequest) -> HttpResponse {
-        guard let id = request.params[":id"] else {
+        guard let ident = request.params[":id"] else {
             return HttpResponse.badRequest(.text("Switch ID must be given"))
         }
 
-        if let sw = switches[id] as? Accessory.Switch {
-            sw.switch.powerState.value = false
-            /*sw.characteristic(
-                sw.switch.powerState,
-                ofService: sw.switch,
-                didChangeValue: false)*/
+        if let `switch` = switches[ident] as? Accessory.Switch {
+            `switch`.switch.powerState.value = false
+            /*`switch`.characteristic(
+             `switch`.switch.powerState,
+             ofService: `switch`.switch,
+             didChangeValue: false)*/
 
             return HttpResponse.accepted
         }
@@ -168,15 +159,15 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
     }
 
     private func switchStatus(request: HttpRequest) -> HttpResponse {
-        guard let id = request.params[":id"] else {
+        guard let ident = request.params[":id"] else {
             return HttpResponse.badRequest(.text("Switch ID must be given"))
         }
 
-        if let sw = switches[id] as? Accessory.Switch {
+        if let `switch` = switches[ident] as? Accessory.Switch {
             guard let response =
-                try? JSONEncoder()
+                    try? JSONEncoder()
                     .encode(
-                        SwitchStatus(id: id, powerState: sw.switch.powerState.value!)) else {
+                        SwitchStatus(identifier: ident, powerState: `switch`.switch.powerState.value!)) else {
 
                 return HttpResponse.internalServerError
             }
@@ -189,14 +180,10 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
 
     private func turnSwitchesOn(request: HttpRequest) -> HttpResponse {
         Array(switches.values)
-            .forEach { sw in
-                let `switch` = sw as! Accessory.Switch
-
-                `switch`.switch.powerState.value = true
-                /*`switch`.characteristic(
-                    `switch`.switch.powerState,
-                    ofService: `switch`.switch,
-                    didChangeValue: true)*/
+            .forEach { `switch` in
+              if let theSwitch = `switch` as? Accessory.Switch {
+                theSwitch.switch.powerState.value = true
+              }
             }
 
         return HttpResponse.accepted
@@ -204,14 +191,10 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
 
     private func turnSwitchesOff(request: HttpRequest) -> HttpResponse {
         Array(switches.values)
-            .forEach { sw in
-                let `switch` = sw as! Accessory.Switch
-
-                `switch`.switch.powerState.value = false
-                /*`switch`.characteristic(
-                    `switch`.switch.powerState,
-                    ofService: `switch`.switch,
-                    didChangeValue: false)*/
+            .forEach { `switch` in
+              if let theSwitch = `switch` as? Accessory.Switch {
+                theSwitch.switch.powerState.value = false
+              }
             }
 
         return HttpResponse.accepted
@@ -222,10 +205,11 @@ public class MiCasaHttpSwitch: MiCasaPlugin {
                 try? JSONEncoder()
                 .encode(
                     Array(switches.keys)
-                        .map { id -> SwitchStatus in
-                            let sw = switches[id] as! Accessory.Switch
+                        .map { ident -> SwitchStatus in
+                            // swiftlint:disable:next force_cast
+                            let `switch` = switches[ident] as! Accessory.Switch
 
-                            return SwitchStatus(id: id, powerState: sw.switch.powerState.value!)
+                            return SwitchStatus(identifier: ident, powerState: `switch`.switch.powerState.value!)
                         }) else {
 
             return HttpResponse.internalServerError
