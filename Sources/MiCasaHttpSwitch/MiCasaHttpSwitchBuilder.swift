@@ -25,7 +25,6 @@ public class MiCasaHttpSwitchBuilder: MiCasaPluginBuilder<MiCasaHttpSwitch> {
         super.init()
     }
 
-
     // MARK: - Plugin Properties
 
     /// The plugin id. The id must be unique and constant; it mustn't change.
@@ -35,14 +34,13 @@ public class MiCasaHttpSwitchBuilder: MiCasaPluginBuilder<MiCasaHttpSwitch> {
 
     /// The plugin name. The plugin name must be unique and is a technical name.
     public override var pluginName: String {
-        return "micasa-http-switch";
+        return "micasa-http-switch"
     }
 
     /// The plugin version.
     public override var pluginVersion: String {
         return "0.0.1"
     }
-
 
     // MARK: - Initialization
 
@@ -53,7 +51,7 @@ public class MiCasaHttpSwitchBuilder: MiCasaPluginBuilder<MiCasaHttpSwitch> {
 
      - Returns: An instance of the plugin
      */
-    public override func build(apiGateway: ApiGateway, configuration: Data) -> MiCasaHttpSwitch {
-        return MiCasaHttpSwitch(apiGateway: apiGateway, configuration: configuration)
+    public override func build(apiGateway: ApiGateway, configuration: Data) throws -> MiCasaHttpSwitch {
+        return try MiCasaHttpSwitch(apiGateway: apiGateway, configuration: configuration)!
     }
 }
